@@ -2,14 +2,14 @@
 ============================================================
 VOICE MODULE - Smart Home Hub Bot
 ============================================================
-Transcripción de notas de voz usando openai-whisper (sin PyAV).
-Más compatible con Railway que faster-whisper.
+Transcripción de notas de voz usando whisper.cpp.
+Implementación C++ más ligera que openai-whisper.
 ============================================================
 """
 
 import os
 import logging
-import whisper
+from pywhispercpp.model import Model
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # CONFIGURACIÓN DEL MODELO
 # ============================================================
-# Modelos disponibles:
+# Modelos disponibles (se descargan automáticamente):
 #   "tiny"     →  75 MB,  más rápido,  menor precisión
 #   "base"     → 142 MB,  rápido,      buena precisión
 #   "small"    → 466 MB,  medio,       muy buena precisión
@@ -26,7 +26,11 @@ logger = logging.getLogger(__name__)
 MODEL_SIZE = os.getenv("WHISPER_MODEL", "tiny")
 
 # Idioma esperado
+# "es" = español, "en" = inglés
 WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "es")
+
+# Número de threads para inferencia (Railway free tiene CPU limitado)
+N_THREADS = int(os.getenv("WHISPER_THREADS", "2"))
 
 
 # ============================================================
@@ -40,12 +44,16 @@ def _get_model():
     global _model
     
     if _model is None:
-        logger.info(f"🤖 Cargando modelo Whisper '{MODEL_SIZE}'...")
+        logger.info(f"🤖 Cargando modelo whisper.cpp '{MODEL_SIZE}'...")
         logger.info(f"   (Primera vez tarda más por la descarga)")
+        logger.info(f"   Threads: {N_THREADS}, Idioma: {WHISPER_LANGUAGE}")
         
-        _model = whisper.load_model(MODEL_SIZE)
+        _model = Model(
+            MODEL_SIZE,
+            n_threads=N_THREADS,
+        )
         
-        logger.info(f"✅ Modelo Whisper cargado: {MODEL_SIZE}")
+        logger.info(f"✅ Modelo whisper.cpp cargado: {MODEL_SIZE}")
     
     return _model
 
@@ -74,13 +82,13 @@ def transcribe_audio(audio_path: str) -> str:
         model = _get_model()
         
         # Transcribir
-        result = model.transcribe(
+        segments = model.transcribe(
             audio_path,
             language=WHISPER_LANGUAGE,
-            fp16=False,  # Desactivar half-precision (CPU no lo soporta bien)
         )
         
-        transcription = result["text"].strip()
+        # Concatenar todos los segmentos
+        transcription = " ".join(segment.text for segment in segments).strip()
         
         logger.info(f"✅ Transcripción: '{transcription}'")
         

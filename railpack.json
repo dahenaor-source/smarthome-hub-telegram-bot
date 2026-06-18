@@ -4,6 +4,12 @@
   "packages": {
     "python": "3.11"
   },
-  "buildAptPackages": ["ffmpeg"],
-  "deployAptPackages": ["ffmpeg"]
+  "buildAptPackages": [
+    "ffmpeg",
+    "build-essential",
+    "cmake"
+  ],
+  "deployAptPackages": [
+    "ffmpeg"
+  ]
 }
